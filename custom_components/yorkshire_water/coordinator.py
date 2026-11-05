@@ -34,11 +34,11 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
         try:
             return await self._fetch()
         except YorkshireWaterAuthError as err:
-            raise UpdateFailed("Yorkshire Water authentication failed") from err
+            raise UpdateFailed(f"Yorkshire Water authentication failed: {err}") from err
         except ConnectionError as err:
-            raise UpdateFailed("Yorkshire Water connection error") from err
+            raise UpdateFailed(f"Yorkshire Water connection error: {err}") from err
         except Exception as err:
-            raise UpdateFailed("Yorkshire Water unexpected error") from err
+            raise UpdateFailed(f"Yorkshire Water unexpected error: {err}") from err
 
     async def _fetch(self) -> dict:
         today = date.today()
@@ -48,9 +48,12 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
         daily_resp = await self.client.async_get_daily_consumption(
             month_start, today, time_period=1
         )
+        if not isinstance(daily_resp, dict):
+            _LOGGER.error("Unexpected daily consumption payload: %s", type(daily_resp))
+            daily_resp = {}
         daily_list = sorted(
             daily_resp.get("dailyUsageData") or [],
-            key=lambda x: x["date"],
+            key=lambda x: x.get("date", ""),
         )
 
         # Last complete day = most recent non-missing entry strictly before today
@@ -58,6 +61,7 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
             (
                 d for d in reversed(daily_list)
                 if not d.get("isMissingConsumption", False)
+                and d.get("date")
                 and d["date"] < today.isoformat()
             ),
             None,
@@ -73,7 +77,7 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
             )
             prev_daily_list = sorted(
                 prev_daily_resp.get("dailyUsageData") or [],
-                key=lambda x: x["date"],
+                key=lambda x: x.get("date", ""),
             )
         else:
             prev_daily_list = []
@@ -82,6 +86,8 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
 
         # ── Monthly summary (your-usage) ───────────────────────────────────────
         your_usage = await self.client.async_get_your_usage()
+        if not isinstance(your_usage, list):
+            your_usage = []
         this_month = your_usage[0] if len(your_usage) > 0 else {}
         last_month = your_usage[1] if len(your_usage) > 1 else {}
 
@@ -89,6 +95,7 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
         complete_days = [
             d for d in all_daily
             if not d.get("isMissingConsumption", False)
+            and d.get("date")
             and d["date"] < today.isoformat()
         ]
         last_7 = complete_days[-7:] if len(complete_days) >= 7 else complete_days

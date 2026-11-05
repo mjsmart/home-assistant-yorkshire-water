@@ -1,6 +1,8 @@
 """Constants for Yorkshire Water integration."""
 from __future__ import annotations
 
+from datetime import date
+
 DOMAIN = "yorkshire_water"
 CONF_METER_REFERENCE = "meter_reference"
 CONF_ACCOUNT_REFERENCE = "account_reference"
@@ -18,6 +20,11 @@ API_ACCOUNT_BASE = f"{PORTAL_BASE}/api/account"
 API_DAILY      = f"{API_BASE}/daily-consumption"
 API_YOUR_USAGE = f"{API_BASE}/your-usage"
 API_PROPERTY   = f"{API_ACCOUNT_BASE}/properties/detail"
+API_PROPERTIES = f"{API_ACCOUNT_BASE}/properties"
+
+# Yorkshire Water only serves smart meter data from this date onwards; the
+# portal UI clamps the requested move-in date to it.
+DATA_FLOOR_DATE = date(2025, 10, 1)
 
 CLIENT_ID    = "css-onlineaccount-fe"
 REDIRECT_URI = f"{PORTAL_BASE}/account/callback/response"
