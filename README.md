@@ -9,6 +9,15 @@
 
 Bring your Yorkshire Water smart meter data directly into Home Assistant. Monitor daily usage, track monthly spend, and set automations based on your water consumption — all without leaving HA.
 
+> 🐛 **Fix for `Failed setup, will retry: Yorkshire Water connection error`**
+> Yorkshire Water's `daily-consumption` endpoint requires the account's
+> `moveInDate` and `moveOutDate` as well as the requested date range. Without
+> them the API answers **HTTP 400** and no data ever arrives. This fork adds
+> those parameters (resolved from the property record and the meter details),
+> surfaces the API's own error body in the log, and accepts account reference
+> numbers with fewer digits than the bill shows. See
+> [CHANGELOG.md](CHANGELOG.md).
+
 ---
 
 ## Features

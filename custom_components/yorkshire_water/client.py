@@ -62,6 +62,8 @@ class YorkshireWaterClient:
         self._move_in_date: date | None = None
         self._move_out_date: date | None = None
         self._meter_details: dict | None = None
+        self._dates_fetched = False
+        self._in_ensure_token = False
 
     def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -70,17 +72,23 @@ class YorkshireWaterClient:
 
     async def _ensure_token(self) -> None:
         """Login if no token, then ensure meter reference and dates are known."""
-        if not self._auth.access_token:
-            try:
-                await self._auth.async_login(self._email, self._password)
-            except PermissionError as err:
-                raise YorkshireWaterAuthError(str(err)) from err
+        if self._in_ensure_token:
+            return
+        self._in_ensure_token = True
+        try:
+            if not self._auth.access_token:
+                try:
+                    await self._auth.async_login(self._email, self._password)
+                except PermissionError as err:
+                    raise YorkshireWaterAuthError(str(err)) from err
 
-        if not self._meter_reference:
-            await self._fetch_meter_reference()
+            if not self._meter_reference:
+                await self._fetch_meter_reference()
 
-        if self._move_in_date is None:
-            await self._fetch_account_dates()
+            if not self._dates_fetched:
+                await self._fetch_account_dates()
+        finally:
+            self._in_ensure_token = False
 
     async def _fetch_meter_reference(self) -> None:
         """Call meter-details with account reference to get meter reference."""
@@ -134,6 +142,7 @@ class YorkshireWaterClient:
 
         self._move_in_date = move_in
         self._move_out_date = move_out
+        self._dates_fetched = True
         _LOGGER.debug(
             "Yorkshire Water account dates: move_in=%s, move_out=%s",
             self._move_in_date,
