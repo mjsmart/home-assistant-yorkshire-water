@@ -8,7 +8,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, DEVICE_NAME
 from .coordinator import YorkshireWaterDataUpdateCoordinator
 
 BINARY_SENSOR_DESCRIPTIONS = [
@@ -42,12 +42,13 @@ class YorkshireWaterBinarySensor(CoordinatorEntity, BinarySensorEntity):
     ) -> None:
         super().__init__(coordinator)
         self._api_field = api_field
-        self._attr_name = f"Yorkshire Water {name}"
+        self._attr_has_entity_name = True
+        self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{key}"
         self._attr_device_class = device_class
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name="Yorkshire Water Smart Meter",
+            name=DEVICE_NAME,
             manufacturer="Yorkshire Water",
             model="Smart Meter",
         )

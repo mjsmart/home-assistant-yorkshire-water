@@ -7,6 +7,10 @@ DOMAIN = "yorkshire_water"
 CONF_METER_REFERENCE = "meter_reference"
 CONF_ACCOUNT_REFERENCE = "account_reference"
 
+# Device name. The entity names are relative to it (has_entity_name), which
+# keeps the entity ids short: sensor.yorkshire_water_last_reading_litres.
+DEVICE_NAME = "Yorkshire Water"
+
 # How often the coordinator polls the Yorkshire Water API
 SCAN_INTERVAL_HOURS = 6
 

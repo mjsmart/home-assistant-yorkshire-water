@@ -1,6 +1,25 @@
 # Changelog
 
-## 1.1.0 — fix the "connection error" that stops every sensor
+## 1.2.0 - clean entity names
+
+The entities were named twice over: the device was called "Yorkshire Water
+Smart Meter" and each entity carried its own "Yorkshire Water ..." prefix, so
+Home Assistant showed *Yorkshire Water Smart Meter Yorkshire Water Last Reading
+Litres* and the entity ids ran to
+`sensor.yorkshire_water_smart_meter_yorkshire_water_last_reading_litres`.
+
+- **`sensor.py` / `binary_sensor.py`** - the entities now set
+  `has_entity_name`, so their name is relative to the device, and the device
+  is called "Yorkshire Water". The entity ids are now the ones the README
+  documents: `sensor.yorkshire_water_last_reading_litres`,
+  `sensor.yorkshire_water_this_month_cost`,
+  `binary_sensor.yorkshire_water_continuous_flow_alarm` and so on.
+
+The unique ids are unchanged, so no entity is duplicated - the existing
+entities are renamed in place. Anything that referenced the old, doubled entity
+ids (dashboards, automations, recorder history) needs updating.
+
+## 1.1.0 - fix the "connection error" that stops every sensor
 
 Yorkshire Water's smart meter `daily-consumption` endpoint answers **HTTP 400**
 unless the request also carries the account's `moveInDate` and `moveOutDate`
