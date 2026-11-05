@@ -298,6 +298,32 @@ def main() -> int:
         status, body = api_get(opener, token, f"{API_BASE}/daily-consumption", params)
         print(f"  {label}\n    -> status {status}  {body[:300]}")
 
+    print("== meter reference sweep (with move dates)")
+    move_in = (account_start or meter_start or DATA_FLOOR).isoformat()
+    move_out = today.isoformat()
+    candidates = []
+    for ref in (
+        meter_reference,
+        account,
+        f"{account}01",
+        f"{account}00",
+        account[:15] if len(account) > 15 else None,
+        f"{account[:15]}01" if len(account) > 15 else None,
+    ):
+        if ref and ref not in candidates:
+            candidates.append(ref)
+    for ref in candidates:
+        params = {
+            "meterReference": ref,
+            "startDate": month_start.isoformat(),
+            "endDate": today.isoformat(),
+            "moveInDate": move_in,
+            "moveOutDate": move_out,
+            "timePeriod": 1,
+        }
+        status, body = api_get(opener, token, f"{API_BASE}/daily-consumption", params)
+        print(f"  meterReference={ref!r} -> status {status}  {body[:200]}")
+
     print("== your-usage")
     status, body = api_get(
         opener, token, f"{API_BASE}/your-usage", {"meterReference": meter_reference}
