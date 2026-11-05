@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.3.0 - sensors for the Home Assistant Energy dashboard
+
+The Energy dashboard's water section only offers sensors that measure a
+*cumulative* amount and carry the matching device classes - the integration's
+sensors were per-period values with no device class, so none of them showed up
+in the picker ("Pick a sensor which measures water consumption in either of
+CCF, ft3, gal, L, MCF, m3").
+
+- **`sensor.py`** - two new sensors:
+  - `sensor.yorkshire_water_total_consumption` - litres consumed since the
+    account opened, `device_class: water`, `state_class: total_increasing`.
+  - `sensor.yorkshire_water_total_cost` - the matching cost,
+    `device_class: monetary`, `state_class: total_increasing`.
+- **`client.py`** - the lifetime totals are read from the `yearly-consumption`
+  endpoint (one call per calendar year, summed) with a fallback to the daily
+  series, and both envelopes the API uses are handled.
+- **`coordinator.py`** - the totals never decrease, so the Energy dashboard
+  does not see a negative delta when Yorkshire Water revises a past reading.
+
+Add them in *Settings -> Dashboards -> Energy -> Water*: the consumption
+sensor and, if you want the cost breakdown, the cost sensor.
+
 ## 1.2.0 - clean entity names
 
 The entities were named twice over: the device was called "Yorkshire Water

@@ -14,25 +14,29 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, DEVICE_NAME
 from .coordinator import YorkshireWaterDataUpdateCoordinator
 
-# (key, name, unit, state_class, icon)
+# (key, name, unit, state_class, icon, device_class)
 SENSOR_DESCRIPTIONS = [
     # Last reading
-    ("last_reading_date",        "Last Reading Date",              None,                None,                             "mdi:calendar"),
-    ("last_reading_litres",      "Last Reading Litres",            UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water"),
-    ("last_reading_cost",        "Last Reading Cost",              "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp"),
+    ("last_reading_date",        "Last Reading Date",              None,                None,                             "mdi:calendar", None),
+    ("last_reading_litres",      "Last Reading Litres",            UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water",    None),
+    ("last_reading_cost",        "Last Reading Cost",              "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp", None),
     # This month
-    ("this_month_litres",        "This Month Litres",              UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water"),
-    ("this_month_cost",          "This Month Cost",                "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp"),
+    ("this_month_litres",        "This Month Litres",              UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water",    None),
+    ("this_month_cost",          "This Month Cost",                "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp", None),
     # Last month
-    ("last_month_litres",        "Last Month Litres",              UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water"),
-    ("last_month_cost",          "Last Month Cost",                "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp"),
+    ("last_month_litres",        "Last Month Litres",              UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water",    None),
+    ("last_month_cost",          "Last Month Cost",                "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp", None),
     # Weekly
-    ("weekly_litres",            "Weekly Litres",                  UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water"),
-    ("weekly_cost",              "Weekly Cost",                    "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp"),
-    ("weekly_daily_avg_litres",  "Weekly Daily Average Litres",    UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water-percent"),
+    ("weekly_litres",            "Weekly Litres",                  UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water",    None),
+    ("weekly_cost",              "Weekly Cost",                    "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp", None),
+    ("weekly_daily_avg_litres",  "Weekly Daily Average Litres",    UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water-percent", None),
     # MTD averages
-    ("daily_avg_litres_mtd",     "Daily Average Litres (MTD)",     UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water-percent"),
-    ("daily_avg_cost_mtd",       "Daily Average Cost (MTD)",       "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp"),
+    ("daily_avg_litres_mtd",     "Daily Average Litres (MTD)",     UnitOfVolume.LITERS, SensorStateClass.MEASUREMENT,     "mdi:water-percent", None),
+    ("daily_avg_cost_mtd",       "Daily Average Cost (MTD)",       "GBP",               SensorStateClass.MEASUREMENT,     "mdi:currency-gbp", None),
+    # Lifetime totals - these carry the device classes the Home Assistant
+    # Energy dashboard needs (water consumption and its cost).
+    ("total_litres",             "Total Consumption",              UnitOfVolume.LITERS, SensorStateClass.TOTAL_INCREASING, "mdi:water",    SensorDeviceClass.WATER),
+    ("total_cost",               "Total Cost",                     "GBP",               SensorStateClass.TOTAL_INCREASING, "mdi:currency-gbp", SensorDeviceClass.MONETARY),
 ]
 
 
@@ -65,6 +69,7 @@ class YorkshireWaterSensor(CoordinatorEntity, SensorEntity):
         unit: str | None,
         state_class: SensorStateClass | None,
         icon: str,
+        device_class: SensorDeviceClass | None = None,
     ) -> None:
         super().__init__(coordinator)
         self._key = key
@@ -74,6 +79,7 @@ class YorkshireWaterSensor(CoordinatorEntity, SensorEntity):
         self._attr_native_unit_of_measurement = unit
         self._attr_state_class = state_class
         self._attr_icon = icon
+        self._attr_device_class = device_class
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=DEVICE_NAME,
@@ -110,6 +116,8 @@ class YorkshireWaterSensor(CoordinatorEntity, SensorEntity):
             "weekly_daily_avg_litres": "weekly_daily_avg_litres",
             "daily_avg_litres_mtd":    "mtd_daily_litres_average",
             "daily_avg_cost_mtd":      "mtd_daily_cost_average",
+            "total_litres":            "total_litres",
+            "total_cost":              "total_cost",
         }
         coord_key = key_map.get(self._key)
         if coord_key:

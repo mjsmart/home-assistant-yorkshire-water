@@ -130,6 +130,43 @@ def main() -> int:
     print("clamped params:", params2)
     check("startDate pulled to moveInDate", params2.get("startDate") == "2026-10-20")
 
+    # Lifetime totals: summed from the yearly endpoint, one call per year.
+    yearly_calls = []
+
+    async def fake_yearly(url, params):
+        yearly_calls.append(params)
+        year = params["year"]
+        if year == str(date.today().year):
+            return {"totalConsumption": 1779.0, "totalCost": 8.31}
+        return {"totalConsumption": 13175.0, "totalCost": 61.53}
+
+    client._get = fake_yearly
+    client._move_in_date = date(2025, 10, 1)
+
+    async def run3():
+        return await client.async_get_lifetime_totals()
+
+    litres, cost = asyncio.run(run3())
+    print("lifetime totals:", litres, cost, "yearly calls:", len(yearly_calls))
+    check("yearly endpoint called once per year", len(yearly_calls) == 2)
+    check("total litres summed across years", litres == 14954.0)
+    check("total cost summed across years", cost == 69.84)
+    check("yearly call carries moveInDate", "moveInDate" in yearly_calls[0])
+    check("yearly call carries moveOutDate", "moveOutDate" in yearly_calls[0])
+
+    # A wrapped {"data": {...}} envelope is unwrapped too.
+    async def fake_yearly_wrapped(url, params):
+        return {"data": {"totalConsumption": 100.0, "totalCost": 1.0}, "statusCode": 200}
+
+    client._get = fake_yearly_wrapped
+
+    async def run4():
+        return await client.async_get_lifetime_totals()
+
+    litres2, cost2 = asyncio.run(run4())
+    print("wrapped envelope totals:", litres2, cost2)
+    check("wrapped envelope unwrapped", litres2 == 200.0)
+
     print()
     if failures:
         print(f"{len(failures)} check(s) failed")

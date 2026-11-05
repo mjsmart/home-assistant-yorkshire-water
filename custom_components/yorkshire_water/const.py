@@ -23,6 +23,7 @@ API_ACCOUNT_BASE = f"{PORTAL_BASE}/api/account"
 
 API_DAILY      = f"{API_BASE}/daily-consumption"
 API_YOUR_USAGE = f"{API_BASE}/your-usage"
+API_YEARLY     = f"{API_BASE}/yearly-consumption"
 API_PROPERTY   = f"{API_ACCOUNT_BASE}/properties/detail"
 API_PROPERTIES = f"{API_ACCOUNT_BASE}/properties"
 

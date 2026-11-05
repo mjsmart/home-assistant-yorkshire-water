@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from .auth import YorkshireWaterAuth
 from .const import (
     API_DAILY,
+    API_YEARLY,
     API_YOUR_USAGE,
     API_PROPERTY,
     API_PROPERTIES,
@@ -44,6 +45,16 @@ def _parse_date(value: object) -> date | None:
     return None
 
 
+def _f(value: object) -> float | None:
+    """Coerce an API value to float, None when it is not a number."""
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class YorkshireWaterAuthError(Exception):
     pass
 
@@ -64,6 +75,7 @@ class YorkshireWaterClient:
         self._meter_details: dict | None = None
         self._dates_fetched = False
         self._in_ensure_token = False
+        self._is_closed = False
 
     def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -123,6 +135,7 @@ class YorkshireWaterClient:
         if prop:
             move_in = _parse_date(prop.get("accountStartDate"))
             move_out = _parse_date(prop.get("accountEndDate"))
+            self._is_closed = bool(prop.get("isClosed"))
 
         details = self._meter_details
         if details is None:
@@ -230,12 +243,7 @@ class YorkshireWaterClient:
         """
         await self._ensure_token()
 
-        move_in = self._move_in_date or DATA_FLOOR_DATE
-        if move_in < DATA_FLOOR_DATE:
-            move_in = DATA_FLOOR_DATE
-        move_out = self._move_out_date or date.today()
-        if move_out < move_in:
-            move_out = move_in
+        move_in, move_out = self._window()
 
         # The portal never asks for data outside the account's active window.
         if start < move_in:
@@ -259,6 +267,89 @@ class YorkshireWaterClient:
         if not isinstance(data, dict):
             raise ConnectionError(f"Unexpected response from {API_DAILY}")
         return data
+
+    async def async_get_yearly_consumption(self, year: int) -> dict:
+        """Yearly totals for one calendar year.
+
+        Returns the payload with the yearly total consumption (litres) and
+        total cost. The endpoint answers with an empty envelope for a year
+        without data.
+        """
+        await self._ensure_token()
+        move_in, move_out = self._window()
+        params = {
+            "meterReference": self._meter_reference,
+            "year": str(year),
+            "moveInDate": move_in.isoformat(),
+            "moveOutDate": move_out.isoformat(),
+            "isClosed": "true" if self._is_closed else "false",
+        }
+        data = await self._get(API_YEARLY, params)
+        if not isinstance(data, dict):
+            return {}
+        inner = data.get("data")
+        if isinstance(inner, dict):
+            return inner
+        return data
+
+    def _window(self) -> tuple[date, date]:
+        """The account's active window: (move in, move out)."""
+        move_in = self._move_in_date or DATA_FLOOR_DATE
+        if move_in < DATA_FLOOR_DATE:
+            move_in = DATA_FLOOR_DATE
+        move_out = self._move_out_date or date.today()
+        if move_out < move_in:
+            move_out = move_in
+        return move_in, move_out
+
+    async def async_get_lifetime_totals(self) -> tuple[float | None, float | None]:
+        """Total consumption (litres) and total cost since the account opened.
+
+        Summed from the yearly endpoint, one call per calendar year. Falls
+        back to summing the daily series when the yearly endpoint has nothing
+        to say. Both values are None when no data could be read.
+        """
+        await self._ensure_token()
+        move_in, move_out = self._window()
+
+        litres = 0.0
+        cost = 0.0
+        found = False
+        for year in range(move_in.year, move_out.year + 1):
+            try:
+                data = await self.async_get_yearly_consumption(year)
+            except Exception as err:  # noqa: BLE001 - totals are best effort
+                _LOGGER.debug("Yearly consumption for %s failed: %s", year, err)
+                continue
+            year_litres = _f(data.get("totalConsumption"))
+            if year_litres is not None:
+                litres += year_litres
+                found = True
+            year_cost = _f(data.get("totalCost"))
+            if year_cost is not None:
+                cost += year_cost
+
+        if not found:
+            # Fall back to the daily series over the whole window.
+            try:
+                daily = await self.async_get_daily_consumption(
+                    move_in, move_out, time_period=1
+                )
+            except Exception as err:  # noqa: BLE001 - totals are best effort
+                _LOGGER.debug("Daily fallback for totals failed: %s", err)
+                return None, None
+            days = daily.get("dailyUsageData") or []
+            litres = sum(
+                _f(day.get("totalConsumptionLitres")) or 0.0 for day in days
+            )
+            cost = sum(
+                _f(day.get("totalCostIncludingSewerage")) or 0.0 for day in days
+            )
+            found = bool(days)
+
+        if not found:
+            return None, None
+        return round(litres, 1), round(cost, 2)
 
     async def async_get_your_usage(self) -> list:
         """Fetch monthly summary — [0] this month, [1] last month."""

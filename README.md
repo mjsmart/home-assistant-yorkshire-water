@@ -81,6 +81,8 @@ Bring your Yorkshire Water smart meter data directly into Home Assistant. Monito
 | `sensor.yorkshire_water_weekly_daily_average_litres` | Daily average litres over last 7 complete days | L |
 | `sensor.yorkshire_water_daily_average_litres_mtd` | Daily average litres month-to-date | L |
 | `sensor.yorkshire_water_daily_average_cost_mtd` | Daily average cost month-to-date | GBP |
+| `sensor.yorkshire_water_total_consumption` | Total consumed since the account opened (cumulative) | L |
+| `sensor.yorkshire_water_total_cost` | Total cost since the account opened (cumulative) | GBP |
 
 ### Binary Sensors
 
@@ -124,7 +126,21 @@ automation:
 
 ---
 
-## Notes
+## Energy Dashboard
+
+The two cumulative sensors carry the device classes the Home Assistant Energy
+dashboard needs:
+
+| Sensor | Device class | Unit |
+|---|---|---|
+| `sensor.yorkshire_water_total_consumption` | `water` | L |
+| `sensor.yorkshire_water_total_cost` | `monetary` | GBP |
+
+Add them in **Settings → Dashboards → Energy → Water** (the consumption
+sensor, plus the cost sensor if you want the cost breakdown). The dashboard
+then derives daily consumption from the running total.
+
+---
 
 - Meter readings typically lag **1–2 days** behind real time — this is a Yorkshire Water platform limitation, not an integration bug
 - All cost sensors include **both water and sewerage charges**

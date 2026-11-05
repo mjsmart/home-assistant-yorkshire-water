@@ -25,6 +25,11 @@ def _f(value: object) -> float:
 class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.client = YorkshireWaterClient(hass, entry.data)
+        # The lifetime total is exposed as a total_increasing sensor, so it
+        # must never go backwards even if Yorkshire Water revises a past
+        # reading.
+        self._max_total_litres: float | None = None
+        self._max_total_cost: float | None = None
         super().__init__(
             hass, _LOGGER, name=DOMAIN,
             update_interval=timedelta(hours=SCAN_INTERVAL_HOURS),
@@ -91,6 +96,22 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
         this_month = your_usage[0] if len(your_usage) > 0 else {}
         last_month = your_usage[1] if len(your_usage) > 1 else {}
 
+        # ── Lifetime totals (for the Home Assistant Energy dashboard) ─────────
+        try:
+            total_litres, total_cost = await self.client.async_get_lifetime_totals()
+        except Exception as err:  # noqa: BLE001 - totals must not break the fetch
+            _LOGGER.debug("Could not read lifetime totals: %s", err)
+            total_litres, total_cost = None, None
+
+        if total_litres is not None:
+            if self._max_total_litres is not None:
+                total_litres = max(total_litres, self._max_total_litres)
+            self._max_total_litres = total_litres
+        if total_cost is not None:
+            if self._max_total_cost is not None:
+                total_cost = max(total_cost, self._max_total_cost)
+            self._max_total_cost = total_cost
+
         # ── Weekly rollup (last 7 complete days) ──────────────────────────────
         complete_days = [
             d for d in all_daily
@@ -140,6 +161,10 @@ class YorkshireWaterDataUpdateCoordinator(DataUpdateCoordinator[dict]):
             "last_month_sewerage_cost":     last_month.get("standardTariffSewerageCost"),
             "last_month_cost_inc_sewerage": last_month.get("totalCostIncludingSewerage"),
             "last_month_estimated_days":    last_month.get("estimatedDayCount"),
+
+            # ── Lifetime totals (Energy dashboard) ─────────────────────────────
+            "total_litres": total_litres,
+            "total_cost":   total_cost,
 
             # ── Raw lists (binary sensors) ────────────────────────────────────
             "daily_list": daily_list,
